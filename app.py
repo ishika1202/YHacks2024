@@ -1,9 +1,12 @@
-from flask import Flask, render_template, request, redirect, url_for, Response
+from flask import Flask, render_template, request, redirect, url_for, Response, session
+from flask_sqlalchemy import SQLAlchemy
+from werkzeug.security import generate_password_hash, check_password_hash
 import cv2
 import numpy as np
 import mediapipe as mp
 
 app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # Change this to a random secret key
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
@@ -113,59 +116,99 @@ def generate_frames():
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
+# Configure the database
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # SQLite database
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+
+# Define User model
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(128), nullable=False)
+
+# Define Profile model
+class Profile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    name = db.Column(db.String(100), nullable=False)
+    age = db.Column(db.Integer, nullable=False)
+    gender = db.Column(db.String(10), nullable=False)
+    surgery_type = db.Column(db.String(100), nullable=False)
+
+# Create the database tables
+with app.app_context():
+    db.create_all()
+# Landing Page route
 @app.route('/')
 def index():
     return render_template('index.html')
-
-# Sign In route
-@app.route('/signin', methods=['GET', 'POST'])
-def signin():
-    if request.method == 'POST':
-        # Example Sign In logic
-        email = request.form['email']
-        password = request.form['password']
-
-        # Authentication logic (simplified here)
-        if email == 'user@example.com' and password == 'password':  # Replace with actual user validation
-            return redirect(url_for('home'))
-        else:
-            return "Invalid login", 401
-
-    return render_template('signin.html')
-
-# Home Page route
-@app.route('/home')
-def home():
-    return render_template('home.html')
-
 
 # Sign-Up route
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        # Here you would handle the sign-up logic
         email = request.form['email']
         password = request.form['password']
+        confirm_password = request.form['confirm_password']
 
-        # Add logic to save the user (not implemented here)
-        
-        # Redirect to Create Profile page after successful sign-up
-        return redirect(url_for('create_profile'))
+        if password == confirm_password:
+            # Hash the password
+            hashed_password = generate_password_hash(password)
+
+            # Save the user in the database
+            new_user = User(email=email, password=hashed_password)
+            db.session.add(new_user)
+            db.session.commit()
+            return redirect(url_for('create_profile'))
+        else:
+            error = "Passwords do not match."
+            return render_template('signup.html', error=error)
 
     return render_template('signup.html')
+
+# Sign-In route
+# Sign-In route
+@app.route('/signin', methods=['GET', 'POST'])
+def signin():
+    error = None  # Initialize error message variable
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        
+        # Find the user in the database
+        user = User.query.filter_by(email=email).first()
+        
+        if user is None:
+            # If the user does not exist
+            error = "No account found."
+        elif not check_password_hash(user.password, password):
+            # If the password does not match
+            error = "Wrong email or password."
+        else:
+            # Successful sign-in
+            session['user'] = user.email  # Save user info in the session
+            return redirect(url_for('home'))
+    
+    return render_template('signin.html', error=error)
+
 
 # Create Profile route
 @app.route('/create_profile', methods=['GET', 'POST'])
 def create_profile():
     if request.method == 'POST':
-        # Here you would handle the profile creation logic
         name = request.form['name']
         age = request.form['age']
         gender = request.form['gender']
         surgery_type = request.form['surgery_type']
 
-        # Process the profile data (save it to a database, etc.)
-        # Redirect to the home page after creation
+        # Find the user based on the email in the session
+        user = User.query.filter_by(email=session['user']).first()
+        if user:
+            new_profile = Profile(user_id=user.id, name=name, age=age, gender=gender, surgery_type=surgery_type)
+            db.session.add(new_profile)
+            db.session.commit()
+
         return redirect(url_for('home'))
 
     return render_template('create_profile.html')
@@ -181,6 +224,11 @@ def excercise():
 def video_feed():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
+
+# Home route
+@app.route('/home')
+def home():
+    return render_template('home.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
