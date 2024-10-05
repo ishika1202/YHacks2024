@@ -28,22 +28,36 @@ def home():
     return render_template('home.html')
 
 
+# Sign-Up route
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
     if request.method == 'POST':
-        # Here you can handle the sign-up logic
+        # Here you would handle the sign-up logic
         email = request.form['email']
         password = request.form['password']
-        confirm_password = request.form['confirm_password']
 
-        # Check if passwords match
-        if password != confirm_password:
-            return "Passwords do not match", 400
+        # Add logic to save the user (not implemented here)
+        
+        # Redirect to Create Profile page after successful sign-up
+        return redirect(url_for('create_profile'))
 
-        # Register user logic (you can later integrate a database)
-        print(f"Sign Up: {email}")
-        return redirect(url_for('index'))
-    
     return render_template('signup.html')
+
+# Create Profile route
+@app.route('/create_profile', methods=['GET', 'POST'])
+def create_profile():
+    if request.method == 'POST':
+        # Here you would handle the profile creation logic
+        name = request.form['name']
+        age = request.form['age']
+        gender = request.form['gender']
+        surgery_type = request.form['surgery_type']
+
+        # Process the profile data (save it to a database, etc.)
+        # Redirect to the home page after creation
+        return redirect(url_for('home'))
+
+    return render_template('create_profile.html')
+
 if __name__ == '__main__':
     app.run(debug=True)

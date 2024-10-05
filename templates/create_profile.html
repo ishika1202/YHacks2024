@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="create-profile-container">
+        <h2>Create Profile</h2>
+
+        <form action="/create_profile" method="POST">
+            <label for="name">Name:</label><br>
+            <input type="text" id="name" name="name" required><br><br>
+
+            <label for="age">Age:</label><br>
+            <input type="number" id="age" name="age" required><br><br>
+
+            <label for="gender">Gender:</label><br>
+            <select id="gender" name="gender" required>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+            </select><br><br>
+
+            <label for="surgery_type">Type of Surgery:</label><br>
+            <select id="surgery_type" name="surgery_type" required>
+                <option value="cardiac">Cardiac</option>
+                <option value="ortho">Ortho</option>
+                <option value="neuro">Neuro</option>
+                <option value="vascular">Vascular</option>
+                <option value="other">Other</option>
+            </select><br><br>
+
+            <button type="submit">Create</button>
+        </form>
+    </div>
+</body>
+</html>

@@ -226,3 +226,40 @@ body {
 .option:hover {
     background-color: #0056b3;
 }
+/* Create Profile Page styling */
+.create-profile-container {
+    background: linear-gradient(to right, #ffcccc, #cceeff); /* Same background */
+    padding: 40px;
+    border-radius: 10px;
+    text-align: center;
+    width: 400px; /* Fixed width */
+    margin: 0 auto; /* Center the container */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
+}
+
+h2 {
+    margin-bottom: 20px;
+}
+
+input, select {
+    width: 90%; /* Full width with some margin */
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #ccc; /* Light border */
+}
+
+button {
+    padding: 10px 20px;
+    background-color: #007bff; /* Same button color */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+button:hover {
+    background-color: #0056b3; /* Darker shade on hover */
+}
