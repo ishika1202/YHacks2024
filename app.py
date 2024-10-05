@@ -58,6 +58,9 @@ def create_profile():
         return redirect(url_for('home'))
 
     return render_template('create_profile.html')
+@app.route('/leaderboard')
+def leaderboard():
+    return render_template('leaderboard.html')
 
 if __name__ == '__main__':
     app.run(debug=True)
