@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Home</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="home-container">
+        <!-- Centered logo -->
+        <div class="logo-center">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" width="150">
+        </div>
+
+        <!-- Options below the logo -->
+        <div class="options">
+            <a href="#" class="option">Events</a>
+            <a href="#" class="option">Leaderboard</a>
+            <a href="#" class="option">Today's Workout</a>
+        </div>
+    </div>
+</body>
+</html>
