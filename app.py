@@ -23,6 +23,7 @@ from io import BytesIO
 import soundfile as sf  # To process audio formats like WAV
 import tempfile
 from resemble import Resemble
+Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
 
 # Load environment variables from .env
 load_dotenv()
@@ -357,14 +358,12 @@ def new_chat():
                 last_message = messages[0]
                 if last_message.role == 'assistant':
                     print("Last message\n\n")
-                    print("last message", last_message.content[0].text.value)
                     assistant_reply = last_message.content[0].text.value
 
         else:
             print(run.status)
 
 
-    Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
 
     # Get your default Resemble project.
     project_uuid = Resemble.v2.projects.all(1, 10)['items'][0]['uuid']
@@ -383,23 +382,22 @@ def new_chat():
                                             include_timestamps=None,
                                             is_archived=None,
                                             raw=None)
-    print(response)
     if response['success']:
-        # Get the audio URL from the response
-        audio_url = response['item']['audio_src']
-        print(f"Audio URL: {audio_url}")
+        # # Get the audio URL from the response
+        # audio_url = response['item']['audio_src']
+        # print(f"Audio URL: {audio_url}")
 
-        # Fetch the audio file from the URL
-        audio_response = requests.get(audio_url)
+        # # Fetch the audio file from the URL
+        # audio_response = requests.get(audio_url)
 
-        # Use a temporary file to store the audio and play it
-        audio_file = BytesIO(audio_response.content)
-        audio_file.seek(0)
+        # # Use a temporary file to store the audio and play it
+        # audio_file = BytesIO(audio_response.content)
+        # audio_file.seek(0)
 
-        return send_file(audio_file, mimetype='audio/wav', download_name='audio.wav')
+        # return send_file(audio_file, mimetype='audio/wav', download_name='audio.wav')
 
     #     print("assistant reply", assistant_reply)
-    #     return jsonify({'reply': assistant_reply}), 200
+        return jsonify({'reply': assistant_reply}), 200
     else:
         return jsonify({"error": "Failed to get audio"}), 400
 
@@ -475,7 +473,7 @@ def generate_video():
 
  # To make a POST request to the /new_chat route
 
-@app.route('/audio_to_text', methods=['POST'])
+# @app.route('/audio_to_text', methods=['POST'])
 # def audio_to_text():
 #     audio_file = request.files['audio']
 #     if not audio_file:
@@ -522,18 +520,44 @@ def audio_to_text():
 
     # Clean up the temporary audio file
     os.remove(temp_audio_path)
-    return requests.post('http://localhost:5000/new_chat', data={'message': transcription})
-    # print("In Audio to speech", response)
-    # print("In Audio to speech", response.content)
-    # if response.status_code == 200:
-    #     reply = response.json().get('reply')
-    #     print("Reply:", reply)
-    # # Check if the /new_chat route responded successfully
-    # if response.status_code == 200:
-    #     return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
-    # else:
-    #     return jsonify({'error': 'Failed to process the transcribed text'}), 500
 
+    # Make the POST request to another endpoint
+    response = requests.post('http://localhost:5000/new_chat', data={'message': transcription})
+
+    if response.status_code != 200:
+        return jsonify({'error': 'Failed to process chat.'}), response.status_code
+
+    # Assuming the assistant's reply is received in the response
+    assistant_reply = response.json().get('reply')
+
+    # Use Resemble to generate the audio response from the assistant's reply
+    Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
+    project_uuid = Resemble.v2.projects.all(1, 10)['items'][0]['uuid']
+    voice_uuid = Resemble.v2.voices.all(1, 10)['items'][0]['uuid']
+
+    # Create the voice clip using Resemble
+    resemble_response = Resemble.v2.clips.create_sync(
+        project_uuid, voice_uuid, assistant_reply
+    )
+
+    if resemble_response['success']:
+        # Fetch the audio file from the generated URL
+        audio_url = resemble_response['item']['audio_src']
+        audio_response = requests.get(audio_url)
+
+        # Use BytesIO to handle the file in memory
+        audio_file = BytesIO(audio_response.content)
+        audio_file.seek(0)
+
+        # Send the audio file as a response
+        return send_file(
+            audio_file,
+            mimetype='audio/wav',
+            as_attachment=True,
+            download_name='response_audio.wav'
+        )
+    else:
+        return jsonify({'error': 'Failed to generate audio'}), 400
 
 
 # Route to check the status of the video
