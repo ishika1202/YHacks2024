@@ -1,5 +1,5 @@
 from email import message
-from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import cv2
@@ -22,6 +22,7 @@ from scipy.io.wavfile import write
 from io import BytesIO
 import soundfile as sf  # To process audio formats like WAV
 import tempfile
+from resemble import Resemble
 
 # Load environment variables from .env
 load_dotenv()
@@ -321,9 +322,44 @@ def new_chat():
             print(run.status)
 
 
-    if assistant_reply:
-        print("assistant reply", assistant_reply)
-        return jsonify({'reply': assistant_reply}), 200
+    Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
+
+    # Get your default Resemble project.
+    project_uuid = Resemble.v2.projects.all(1, 10)['items'][0]['uuid']
+
+    # Get your Voice uuid. In this example, we'll obtain the first.
+    voice_uuid = Resemble.v2.voices.all(1, 10)['items'][0]['uuid']
+
+    # Let's create a clip!
+    response = Resemble.v2.clips.create_sync(project_uuid,
+                                            voice_uuid,
+                                            assistant_reply,
+                                            title=None,
+                                            sample_rate=None,
+                                            output_format=None,
+                                            precision=None,
+                                            include_timestamps=None,
+                                            is_archived=None,
+                                            raw=None)
+    print(response)
+    if response['success']:
+        # Get the audio URL from the response
+        audio_url = response['item']['audio_src']
+        print(f"Audio URL: {audio_url}")
+
+        # Fetch the audio file from the URL
+        audio_response = requests.get(audio_url)
+
+        # Use a temporary file to store the audio and play it
+        audio_file = BytesIO(audio_response.content)
+        audio_file.seek(0)
+
+        return send_file(audio_file, mimetype='audio/wav', download_name='audio.wav')
+
+    #     print("assistant reply", assistant_reply)
+    #     return jsonify({'reply': assistant_reply}), 200
+    else:
+        return jsonify({"error": "Failed to get audio"}), 400
 
 
 # Endpoint for generating videos
@@ -444,13 +480,17 @@ def audio_to_text():
 
     # Clean up the temporary audio file
     os.remove(temp_audio_path)
-    response = requests.post('http://localhost:5000/new_chat', data={'message': transcription})
-    print("In Audio to speach", response)
-    # Check if the /new_chat route responded successfully
-    if response.status_code == 200:
-        return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
-    else:
-        return jsonify({'error': 'Failed to process the transcribed text'}), 500
+    return requests.post('http://localhost:5000/new_chat', data={'message': transcription})
+    # print("In Audio to speech", response)
+    # print("In Audio to speech", response.content)
+    # if response.status_code == 200:
+    #     reply = response.json().get('reply')
+    #     print("Reply:", reply)
+    # # Check if the /new_chat route responded successfully
+    # if response.status_code == 200:
+    #     return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
+    # else:
+    #     return jsonify({'error': 'Failed to process the transcribed text'}), 500
 
 
 
