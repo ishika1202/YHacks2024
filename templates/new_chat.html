@@ -1,0 +1,312 @@
+<!-- templates/new_chat.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Chat with Assistant</title>
+    <style>
+      /* Basic styling for the chat interface */
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f2f2f2;
+      }
+      .chat-container {
+        width: 500px;
+        margin: 50px auto;
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        position: relative; /* For positioning the buttons */
+      }
+      .chat-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      .chat-header h2 {
+        margin: 0;
+      }
+      .chat-buttons {
+        display: flex;
+        gap: 10px;
+      }
+      .chat-buttons button {
+        padding: 5px 10px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .chat-buttons button:hover {
+        background-color: #218838;
+      }
+      .chat-messages {
+        height: 300px;
+        overflow-y: scroll;
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-bottom: 10px;
+        background-color: #fafafa;
+        border-radius: 5px;
+      }
+      .message {
+        margin: 10px 0;
+      }
+      .user {
+        text-align: right;
+        color: blue;
+      }
+      .assistant {
+        text-align: left;
+        color: green;
+      }
+      .chat-input {
+        display: flex;
+      }
+      .chat-input input {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .chat-input button {
+        padding: 10px 20px;
+        margin-left: 10px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+      .chat-input button:hover {
+        background-color: #0056b3;
+      }
+      /* Download button styling */
+      #download-video-button {
+        background-color: #ffc107;
+      }
+      #download-video-button:hover {
+        background-color: #e0a800;
+      }
+      /* Disabled state for buttons */
+      button:disabled {
+        background-color: #6c757d !important;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="chat-container">
+      <div class="chat-header">
+        <h2>Chat with Assistant</h2>
+        <!-- <div class="chat-buttons">
+          <button id="generate-video-button">Generate Video</button>
+          <button id="download-video-button" style="display: none">
+            Download Video
+          </button>
+        </div> -->
+      </div>
+      <div class="chat-messages" id="chat-messages">
+        <!-- Chat messages will appear here -->
+      </div>
+      <div class="chat-input">
+        <input
+          type="text"
+          id="message-input"
+          placeholder="Type your message here..."
+        />
+        <button id="send-button">Send</button>
+      </div>
+    </div>
+    <script>
+      const sendButton = document.getElementById("send-button");
+      const generateVideoButton = document.getElementById(
+        "generate-video-button"
+      );
+      const downloadVideoButton = document.getElementById(
+        "download-video-button"
+      );
+      const messageInput = document.getElementById("message-input");
+      const chatMessages = document.getElementById("chat-messages");
+      let videoID = "";
+      let videoURL = "";
+      let checkStatusInterval = null;
+
+      // Function to append messages to the chat
+      function appendMessage(sender, message) {
+        const messageDiv = document.createElement("div");
+        messageDiv.classList.add("message", sender);
+        messageDiv.textContent = message;
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+
+      // Function to log detailed error messages
+      function logError(prefix, error, response = null) {
+        console.error(`${prefix}:`, error);
+        if (response) {
+          console.log("Response Status:", response.status);
+          console.log("Response Text:", response.statusText);
+        }
+      }
+
+      // Function to send message to the server
+      function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message === "") return;
+
+        appendMessage("user", message);
+        messageInput.value = "";
+
+        fetch("/new_chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: `message=${encodeURIComponent(message)}`,
+        })
+          .then((response) => {
+            if (!response.ok) {
+              logError("Error sending message", response);
+              throw new Error("Network response was not ok.");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            if (data.reply) {
+              appendMessage("assistant", data.reply);
+            } else if (data.error) {
+              appendMessage("assistant", `Error: ${data.error}`);
+            }
+          })
+          .catch((error) => {
+            logError("Send message failed", error);
+            appendMessage("assistant", "Sorry, something went wrong.");
+          });
+      }
+
+      // Event listener for the send button
+      sendButton.addEventListener("click", sendMessage);
+
+      // Event listener for the Enter key
+      messageInput.addEventListener("keyup", function (event) {
+        if (event.key === "Enter") {
+          sendMessage();
+        }
+      });
+
+      // Function to generate video
+      function generateVideo() {
+        const message = messageInput.value.trim();
+        if (message === "") {
+          alert("Please enter a message to generate a video.");
+          return;
+        }
+
+        // Disable the generate button to prevent multiple clicks
+        generateVideoButton.disabled = true;
+        appendMessage("user", message);
+        messageInput.value = "";
+
+        fetch("/generate_video", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ input_text: message }),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              logError("Error initiating video generation", response);
+              throw new Error("Failed to generate video.");
+            }
+            return response.json();
+          })
+          .then((data) => {
+            if (data.video_id) {
+              videoID = data.video_id;
+              appendMessage(
+                "assistant",
+                "Video generation started. Please wait..."
+              );
+              // Start polling for video status
+              checkVideoStatus(videoID);
+            } else if (data.error) {
+              appendMessage("assistant", `Error: ${data.error}`);
+              generateVideoButton.disabled = false;
+            }
+          })
+          .catch((error) => {
+            logError("Video generation failed", error);
+            appendMessage("assistant", "Failed to initiate video generation.");
+            generateVideoButton.disabled = false;
+          });
+      }
+
+      // Function to check video status periodically
+      function checkVideoStatus(videoID) {
+        const interval = 5000; // 5 seconds
+        checkStatusInterval = setInterval(() => {
+          fetch(`/video_status?video_id=${videoID}`)
+            .then((response) => {
+              if (!response.ok) {
+                logError("Error checking video status", response);
+                throw new Error("Failed to check video status.");
+              }
+              return response.json();
+            })
+            .then((data) => {
+              if (data.status === "completed") {
+                clearInterval(checkStatusInterval);
+                videoURL = data.video_url;
+                appendMessage("assistant", "Video is ready!");
+                // Hide generate button and show download button
+                generateVideoButton.style.display = "none";
+                downloadVideoButton.style.display = "inline-block";
+                downloadVideoButton.dataset.videoUrl = videoURL;
+              } else if (data.status === "failed") {
+                clearInterval(checkStatusInterval);
+                appendMessage("assistant", "Video generation failed.");
+                generateVideoButton.disabled = false;
+              } else {
+                console.log(`Video status: ${data.status}`);
+                appendMessage("assistant", `Video status: ${data.status}`);
+              }
+            })
+            .catch((error) => {
+              logError("Error checking video status", error);
+              appendMessage("assistant", "Error checking video status.");
+              clearInterval(checkStatusInterval);
+              generateVideoButton.disabled = false;
+            });
+        }, interval);
+      }
+
+      // Function to download video
+      function downloadVideo() {
+        if (!videoURL) {
+          alert("Video URL is not available.");
+          return;
+        }
+
+        // Create a temporary anchor element to initiate download
+        const a = document.createElement("a");
+        a.href = videoURL;
+        a.download = "generated_video.mp4";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+
+      // Event listener for the generate video button
+      generateVideoButton.addEventListener("click", generateVideo);
+
+      // Event listener for the download video button
+      downloadVideoButton.addEventListener("click", downloadVideo);
+    </script>
+  </body>
+</html>

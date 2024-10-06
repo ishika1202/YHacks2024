@@ -1,12 +1,32 @@
-from flask import Flask, render_template, request, redirect, url_for, Response, session
+from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 import cv2
 import numpy as np
 import mediapipe as mp
+import os
+from dotenv import load_dotenv
+from openai import OpenAI  
+import openai
+import logging
+import requests
+
+# Load environment variables from .env
+load_dotenv()
+
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Change this to a random secret key
+
+# Initialize OpenAI Client
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+
+HEYGEN_API_KEY = os.getenv('HEYGEN_API_KEY')
+
+# Endpoint for generating videos
+HEYGEN_VIDEO_GENERATE_URL = 'https://api.heygen.com/v2/video/generate'
+HEYGEN_VIDEO_STATUS_URL = 'https://api.heygen.com/v1/video_status.get'
+
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
@@ -171,6 +191,7 @@ def signup():
 # Sign-In route
 @app.route('/signin', methods=['GET', 'POST'])
 def signin():
+    print("session is", session)
     error = None  # Initialize error message variable
     if request.method == 'POST':
         email = request.form['email']
@@ -201,6 +222,7 @@ def create_profile():
         age = request.form['age']
         gender = request.form['gender']
         surgery_type = request.form['surgery_type']
+        print(session)
 
         # Find the user based on the email in the session
         user = User.query.filter_by(email=session['user']).first()
@@ -225,6 +247,143 @@ def video_feed():
     return Response(generate_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
+
+# Fixed thread ID and Assistant ID
+FIXED_THREAD_ID = "thread_P6sL6lNsFbTy9uG4vMTJ9vu1"
+ASSISTANT_ID = "asst_YXZx1z8URiwtk9XusbA0nH40"
+
+@app.route('/new_chat', methods=['GET', 'POST'])
+def new_chat():
+    if request.method == 'GET':
+        # Render the chat interface with the fixed thread_id
+        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
+    
+    elif request.method == 'POST':
+        user_message = request.form.get('message')
+        thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
+        
+        if not user_message:
+            return jsonify({'error': 'Missing message.'}), 400
+        
+     
+        # Step 3: Add user message to the thread
+        openai.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=user_message
+        )
+
+        
+        # Step 4: Create a run with the Assistant
+        run = openai.beta.threads.runs.create_and_poll(
+            thread_id=thread_id,
+            assistant_id=ASSISTANT_ID,
+            instructions="Answer as Ishika."
+        )
+
+# print(thread_messages.÷data)
+
+        if run.status == 'completed': 
+
+
+            messages_cursor = openai.beta.threads.messages.list(
+                thread_id=thread_id,
+                order='desc',
+                limit=1
+            )
+            # print("=======message cursor", messages_cursor)
+            messages = list(messages_cursor)
+            if messages:
+                last_message = messages[0]
+                if last_message.role == 'assistant':
+                    print("Last message\n\n")
+                    print("last message", last_message.content[0].text.value)
+                    assistant_reply = last_message.content[0].text.value
+
+        else:
+            print(run.status)
+
+    
+    if assistant_reply:
+        print("assistant reply", assistant_reply)
+        return jsonify({'reply': assistant_reply}), 200
+
+
+# Endpoint for generating videos
+HEYGEN_VIDEO_GENERATE_URL = 'https://api.heygen.com/v2/video/generate'
+HEYGEN_VIDEO_STATUS_URL = 'https://api.heygen.com/v1/video_status.get'
+
+# Route to generate the video
+@app.route('/generate_video', methods=['POST'])
+def generate_video():
+    data = request.json
+    input_text = data.get('input_text', "Welcome to the HeyGen API!")
+
+    # Prepare the video generation request data
+    video_data = {
+        "video_inputs": [
+            {
+                "character": {
+                    "type": "avatar",
+                    "avatar_id": "af235c10c19046648979035bf8192235", 
+                    "avatar_style": "friendly"
+                },
+                "voice": {
+                    "type": "text",
+                    "input_text": input_text,
+                    "voice_id": "39cb1efb2549439c8ee90d14f4e08a89"  
+                },
+                "background": {
+                    "type": "color",
+                    "value": "#008000"
+                }
+            }
+        ],
+        "dimension": {
+            "width": 1280,
+            "height": 720
+        },
+        "aspect_ratio": "16:9",
+        "test": True  # Using test mode for free watermarked video
+    }
+
+    # Make the request to HeyGen API
+    headers = {
+        'X-Api-Key': HEYGEN_API_KEY,
+        'Content-Type': 'application/json'
+    }
+    response = requests.post(HEYGEN_VIDEO_GENERATE_URL, json=video_data, headers=headers)
+    print(response)
+
+    if response.status_code == 200:
+        video_id = response.json().get('video_id')
+        return jsonify({'video_id': video_id}), 200
+    else:
+        return jsonify({'error': 'Failed to generate video'}), 500
+
+
+# Route to check the status of the video
+@app.route('/video_status', methods=['GET'])
+def video_status():
+    video_id = request.args.get('video_id')
+
+    if not video_id:
+        return jsonify({'error': 'Missing video ID'}), 400
+
+    # Check the video status
+    status_url = f'{HEYGEN_VIDEO_STATUS_URL}?video_id={video_id}'
+    headers = {
+        'X-Api-Key': HEYGEN_API_KEY
+    }
+    response = requests.get(status_url, headers=headers)
+
+    if response.status_code == 200:
+        status = response.json().get('status')
+        video_url = response.json().get('video_url')
+        return jsonify({'status': status, 'video_url': video_url}), 200
+    else:
+        return jsonify({'error': 'Failed to check video status'}), 500
+   
 # Home route
 @app.route('/home')
 def home():
