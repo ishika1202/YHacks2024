@@ -1,3 +1,4 @@
+from email import message
 from flask import Flask, render_template, request, redirect, url_for, Response, session, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -6,10 +7,19 @@ import numpy as np
 import mediapipe as mp
 import os
 from dotenv import load_dotenv
-from openai import OpenAI  
 import openai
+from openai import OpenAI  
+import requests 
 import logging
 import requests
+import sounddevice as sd
+import numpy as np
+import whisper
+import queue
+import threading
+import time
+from scipy.io.wavfile import write
+
 
 # Load environment variables from .env
 load_dotenv()
@@ -256,56 +266,72 @@ def video_feed():
 FIXED_THREAD_ID = "thread_P6sL6lNsFbTy9uG4vMTJ9vu1"
 ASSISTANT_ID = "asst_YXZx1z8URiwtk9XusbA0nH40"
 
+# @app.route('/new_chat', methods=['GET', 'POST'])
+# def new_chat(string: msg):
+#     if request.method == 'GET':
+#         # Render the chat interface with the fixed thread_id
+#         return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
+    
+#     elif request.method == 'POST':
+#         user_message = msg;
+#         thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
+        
+#         if not user_message:
+#             return jsonify({'error': 'Missing message.'}), 400
+        
 @app.route('/new_chat', methods=['GET', 'POST'])
 def new_chat():
     if request.method == 'GET':
-        # Render the chat interface with the fixed thread_id
+        # Render the chat interface with a fixed thread_id
         return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
-    
+
     elif request.method == 'POST':
-        user_message = request.form.get('message')
+        # Get the message from the POST request
+        user_message = request.form.get('msg')  # Assuming 'msg' is passed in the POST request form data
         thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
         
         if not user_message:
             return jsonify({'error': 'Missing message.'}), 400
         
-     
-        # Step 3: Add user message to the thread
-        openai.beta.threads.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=user_message
-        )
+        # Process the user message (you can add processing logic here)
+        return jsonify({'message': 'Message received', 'user_message': user_message}), 200
 
-        
-        # Step 4: Create a run with the Assistant
-        run = openai.beta.threads.runs.create_and_poll(
-            thread_id=thread_id,
-            assistant_id=ASSISTANT_ID,
-            instructions="Answer as Ishika."
-        )
+        # Step 3: Add user message to the thread
+    openai.beta.threads.messages.create(
+        thread_id=thread_id,
+        role="user",
+        content=user_message
+    )
+
+    
+    # Step 4: Create a run with the Assistant
+    run = openai.beta.threads.runs.create_and_poll(
+        thread_id=thread_id,
+        assistant_id=ASSISTANT_ID,
+        instructions="Answer as Ishika."
+    )
 
 # print(thread_messages.÷data)
 
-        if run.status == 'completed': 
+    if run.status == 'completed': 
 
 
-            messages_cursor = openai.beta.threads.messages.list(
-                thread_id=thread_id,
-                order='desc',
-                limit=1
-            )
-            # print("=======message cursor", messages_cursor)
-            messages = list(messages_cursor)
-            if messages:
-                last_message = messages[0]
-                if last_message.role == 'assistant':
-                    print("Last message\n\n")
-                    print("last message", last_message.content[0].text.value)
-                    assistant_reply = last_message.content[0].text.value
+        messages_cursor = openai.beta.threads.messages.list(
+            thread_id=thread_id,
+            order='desc',
+            limit=1
+        )
+        # print("=======message cursor", messages_cursor)
+        messages = list(messages_cursor)
+        if messages:
+            last_message = messages[0]
+            if last_message.role == 'assistant':
+                print("Last message\n\n")
+                print("last message", last_message.content[0].text.value)
+                assistant_reply = last_message.content[0].text.value
 
-        else:
-            print(run.status)
+    else:
+        print(run.status)
 
     
     if assistant_reply:
@@ -366,16 +392,37 @@ def generate_video():
         return jsonify({'error': 'Failed to generate video'}), 500
 
 
+# @app.route('/audio_to_text', methods=['POST'])
+# def audio_to_text():
+#     audio_file = request.files['audio']
+#     if not audio_file:
+#         return jsonify({'error': 'No audio file found'}), 400
+
+#     # Process the audio file here
+#     result = model.transcribe(audio_file)
+#     new_chat(result)
+#     return jsonify({'message': 'Audio file received'}), 200
+
+ # To make a POST request to the /new_chat route
+
 @app.route('/audio_to_text', methods=['POST'])
 def audio_to_text():
     audio_file = request.files['audio']
     if not audio_file:
         return jsonify({'error': 'No audio file found'}), 400
 
-    # Process the audio file here
+    # Process the audio file here (assuming you have a model object to transcribe)
+    result = model.transcribe(audio_file)
+    transcribed_text = result['text']  # Assuming the result has 'text' key
 
-    return jsonify({'message': 'Audio file received'}), 200
+    # Make a POST request to /new_chat with the transcribed text
+    response = requests.post('http://localhost:5000/new_chat', data={'msg': transcribed_text})
 
+    # Check if the /new_chat route responded successfully
+    if response.status_code == 200:
+        return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
+    else:
+        return jsonify({'error': 'Failed to process the transcribed text'}), 500
 
 
 # Route to check the status of the video
