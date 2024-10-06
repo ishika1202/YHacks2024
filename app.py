@@ -160,6 +160,7 @@ def signup():
             new_user = User(email=email, password=hashed_password)
             db.session.add(new_user)
             db.session.commit()
+            session['user'] = new_user.email  # Save user info in the session
             return redirect(url_for('create_profile'))
         else:
             error = "Passwords do not match."
@@ -200,10 +201,13 @@ def create_profile():
         name = request.form['name']
         age = request.form['age']
         gender = request.form['gender']
-        surgery_type = request.form['surgery_type']
-
+        surgery_type = 'default'
+        
+        if 'user' in session:
         # Find the user based on the email in the session
-        user = User.query.filter_by(email=session['user']).first()
+            user = User.query.filter_by(email=session['user']).first()
+        else:
+            redirect(url_for('signin'))
         if user:
             new_profile = Profile(user_id=user.id, name=name, age=age, gender=gender, surgery_type=surgery_type)
             db.session.add(new_profile)
@@ -212,6 +216,7 @@ def create_profile():
         return redirect(url_for('home'))
 
     return render_template('create_profile.html')
+
 @app.route('/leaderboard')
 def leaderboard():
     return render_template('leaderboard.html')

@@ -136,7 +136,6 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: #f0f0f0;
 }
 
 /* Right side: Sign Up form */
@@ -167,7 +166,6 @@ body {
 .signup-form button {
     width: 100%;
     padding: 15px;
-    background-color: #28a745;
     color: white;
     border: none;
     border-radius: 5px;
@@ -176,7 +174,7 @@ body {
 }
 
 .signup-form button:hover {
-    background-color: #218838;
+    background-color: #ff8533;
 }
 /* Home Page styling */
 /* Home Page styling */
@@ -251,7 +249,7 @@ input, select {
 
 button {
     padding: 10px 20px;
-    background-color: #007bff; /* Same button color */
+    background-color: #ff6600; /* Same button color */
     color: white;
     border: none;
     border-radius: 5px;
@@ -261,5 +259,5 @@ button {
 }
 
 button:hover {
-    background-color: #0056b3; /* Darker shade on hover */
+    background-color: #ff8533; /* Darker shade on hover */
 }
