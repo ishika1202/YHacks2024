@@ -100,8 +100,8 @@
 
 <div class="chat-container">
     <div class="chat-header">
-        <img src="person-icon.png" alt="Person" class="person-icon">
-        <h2>Chat with Assistant</h2>
+        <img src="../static/images/person-icon.jpeg" alt="Person" class="person-icon">
+        <h2>Chat with Ishika</h2>
     </div>
 
     <div class="chat-input">
@@ -152,7 +152,6 @@
             mediaRecorder.stop();
             isRecording = false;
             recordButton.textContent = "🎤 Start Recording";
-            loader.style.display = "none";
             statusText.textContent = "Stopped recording.";
         }
 
@@ -165,6 +164,7 @@
                 body: formData
             })
             .then(response => {
+                loader.style.display = "none";
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
