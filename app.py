@@ -27,6 +27,7 @@ Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
 
 # Load environment variables from .env
 load_dotenv()
+model = whisper.load_model("base")
 
 
 app = Flask(__name__)
@@ -309,8 +310,8 @@ def video_feed():
 
 
 # Fixed thread ID and Assistant ID
-FIXED_THREAD_ID = "thread_P6sL6lNsFbTy9uG4vMTJ9vu1"
-ASSISTANT_ID = "asst_YXZx1z8URiwtk9XusbA0nH40"
+FIXED_THREAD_ID = "thread_LRBdUm1StIQS7nvb4Osww3R9"
+ASSISTANT_ID = "asst_T7NJHUhQr1AY4X7d4MwPF1X1"
 
 
 @app.route('/new_chat', methods=['GET', 'POST'])
