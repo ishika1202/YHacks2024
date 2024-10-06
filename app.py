@@ -19,7 +19,9 @@ import queue
 import threading
 import time
 from scipy.io.wavfile import write
-
+from io import BytesIO
+import soundfile as sf  # To process audio formats like WAV
+import tempfile
 
 # Load environment variables from .env
 load_dotenv()
@@ -46,7 +48,7 @@ mp_drawing = mp.solutions.drawing_utils
 # Initialize counters
 counter = 0
 stage = None
-
+model = whisper.load_model("base")
 # Function to calculate the angle between three points
 def calculate_angle(a, b, c):
     a = np.array(a)  # First point (shoulder)
@@ -279,64 +281,64 @@ ASSISTANT_ID = "asst_YXZx1z8URiwtk9XusbA0nH40"
 #         if not user_message:
 #             return jsonify({'error': 'Missing message.'}), 400
         
-@app.route('/new_chat', methods=['GET', 'POST'])
-def new_chat():
-    if request.method == 'GET':
-        # Render the chat interface with a fixed thread_id
-        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
+# @app.route('/new_chat', methods=['GET', 'POST'])
+# def new_chat():
+#     if request.method == 'GET':
+#         # Render the chat interface with a fixed thread_id
+#         return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
 
-    elif request.method == 'POST':
-        # Get the message from the POST request
-        user_message = request.form.get('msg')  # Assuming 'msg' is passed in the POST request form data
-        thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
+#     elif request.method == 'POST':
+#         # Get the message from the POST request
+#         user_message = request.form.get('msg')  # Assuming 'msg' is passed in the POST request form data
+#         thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
         
-        if not user_message:
-            return jsonify({'error': 'Missing message.'}), 400
+#         if not user_message:
+#             return jsonify({'error': 'Missing message.'}), 400
         
-        # Process the user message (you can add processing logic here)
-        return jsonify({'message': 'Message received', 'user_message': user_message}), 200
+#         # Process the user message (you can add processing logic here)
+#         return jsonify({'message': 'Message received', 'user_message': user_message}), 200
 
-        # Step 3: Add user message to the thread
-    openai.beta.threads.messages.create(
-        thread_id=thread_id,
-        role="user",
-        content=user_message
-    )
+#         # Step 3: Add user message to the thread
+#     openai.beta.threads.messages.create(
+#         thread_id=thread_id,
+#         role="user",
+#         content=user_message
+#     )
 
     
-    # Step 4: Create a run with the Assistant
-    run = openai.beta.threads.runs.create_and_poll(
-        thread_id=thread_id,
-        assistant_id=ASSISTANT_ID,
-        instructions="Answer as Ishika."
-    )
+#     # Step 4: Create a run with the Assistant
+#     run = openai.beta.threads.runs.create_and_poll(
+#         thread_id=thread_id,
+#         assistant_id=ASSISTANT_ID,
+#         instructions="Answer as Ishika."
+#     )
 
-# print(thread_messages.÷data)
+# # print(thread_messages.÷data)
 
-    if run.status == 'completed': 
+#     if run.status == 'completed': 
 
 
-        messages_cursor = openai.beta.threads.messages.list(
-            thread_id=thread_id,
-            order='desc',
-            limit=1
-        )
-        # print("=======message cursor", messages_cursor)
-        messages = list(messages_cursor)
-        if messages:
-            last_message = messages[0]
-            if last_message.role == 'assistant':
-                print("Last message\n\n")
-                print("last message", last_message.content[0].text.value)
-                assistant_reply = last_message.content[0].text.value
+#         messages_cursor = openai.beta.threads.messages.list(
+#             thread_id=thread_id,
+#             order='desc',
+#             limit=1
+#         )
+#         # print("=======message cursor", messages_cursor)
+#         messages = list(messages_cursor)
+#         if messages:
+#             last_message = messages[0]
+#             if last_message.role == 'assistant':
+#                 print("Last message\n\n")
+#                 print("last message", last_message.content[0].text.value)
+#                 assistant_reply = last_message.content[0].text.value
 
-    else:
-        print(run.status)
+#     else:
+#         print(run.status)
 
     
-    if assistant_reply:
-        print("assistant reply", assistant_reply)
-        return jsonify({'reply': assistant_reply}), 200
+#     if assistant_reply:
+#         print("assistant reply", assistant_reply)
+#         return jsonify({'reply': assistant_reply}), 200
 
 
 # Endpoint for generating videos
@@ -406,24 +408,70 @@ def generate_video():
  # To make a POST request to the /new_chat route
 
 @app.route('/audio_to_text', methods=['POST'])
+# def audio_to_text():
+#     audio_file = request.files['audio']
+#     if not audio_file:
+#         return jsonify({'error': 'No audio file found'}), 400
+
+#     # Process the audio file here (assuming you have a model object to transcribe)
+    
+#     audio_bytes = BytesIO(audio_file.read())
+#     audio, sample_rate = sf.read(audio_bytes)
+
+    # Check if sample rate needs to be adjusted for the model
+    # If using Whisper, it resamples automatically
+    # But if you're using another model, you may need to resample
+
+    # Assuming model accepts raw audio data for transcription
+    # result = model.transcribe(audio)
+    # transcribed_text = result['text']  
+    # # Make a POST request to /new_chat with the transcribed text
+    # response = requests.post('http://localhost:5000/new_chat', data={'msg': transcribed_text})
+
+    # # Check if the /new_chat route responded successfully
+    # if response.status_code == 200:
+    #     return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
+    # else:
+    #     return jsonify({'error': 'Failed to process the transcribed text'}), 500
+
+
+
+@app.route('/audio_to_text', methods=['POST'])
 def audio_to_text():
-    audio_file = request.files['audio']
-    if not audio_file:
+    if 'audio' not in request.files:
         return jsonify({'error': 'No audio file found'}), 400
 
-    # Process the audio file here (assuming you have a model object to transcribe)
-    result = model.transcribe(audio_file)
-    transcribed_text = result['text']  # Assuming the result has 'text' key
+    audio_file = request.files['audio']
 
-    # Make a POST request to /new_chat with the transcribed text
-    response = requests.post('http://localhost:5000/new_chat', data={'msg': transcribed_text})
+    # Save the audio to a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
+        temp_audio_file.write(audio_file.read())
+        temp_audio_path = temp_audio_file.name
 
-    # Check if the /new_chat route responded successfully
-    if response.status_code == 200:
-        return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
-    else:
-        return jsonify({'error': 'Failed to process the transcribed text'}), 500
+    # Transcribe the audio using Whisper
+    result = model.transcribe(temp_audio_path)
+    transcription = result['text']
 
+    # Clean up the temporary audio file
+    os.remove(temp_audio_path)
+
+    # Send the transcription as a JSON response
+    return jsonify({'transcription': transcription}), 200
+
+# Route for GPT processing (new_chat)
+@app.route('/new_chat', methods=['POST', 'GET'])
+def new_chat():
+    if request.method == 'GET':
+         # Render the chat interface with the fixed thread_id
+        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
+    elif request.method == 'POST':
+        print("inside post")
+        user_message = request.form.get('message')
+    
+    # Simulate GPT response
+        gpt_response = f"GPT response to: {user_message}"
+        print(gpt_response)
+        return jsonify({'reply': gpt_response}), 200
 
 # Route to check the status of the video
 @app.route('/video_status', methods=['GET'])
