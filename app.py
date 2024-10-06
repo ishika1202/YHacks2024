@@ -55,7 +55,7 @@ stage_right = None
 stage_left = None
  
 # Camera object for video capturing
-camera = cv2.VideoCapture(0)
+camera = cv2.VideoCapture(1)
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
  
@@ -313,6 +313,8 @@ def video_feed():
 FIXED_THREAD_ID = "thread_LRBdUm1StIQS7nvb4Osww3R9"
 ASSISTANT_ID = "asst_T7NJHUhQr1AY4X7d4MwPF1X1"
 
+FIXED_THREAD_ID2 = "thread_WmtZCcnJZXe0mfM2d1i0qcbw"
+ASSISTANT_ID2= "asst_4atbjWem0a1P5EUSEVeUBWam"
 
 @app.route('/new_chat', methods=['GET', 'POST'])
 def new_chat():
@@ -341,6 +343,94 @@ def new_chat():
             thread_id=thread_id,
             assistant_id=ASSISTANT_ID,
             instructions="Answer as Ishika."
+        )
+
+# print(thread_messages.÷data)
+
+        if run.status == 'completed': 
+
+
+            messages_cursor = openai.beta.threads.messages.list(
+                thread_id=thread_id,
+                order='desc',
+                limit=1
+            )
+            # print("=======message cursor", messages_cursor)
+            messages = list(messages_cursor)
+            if messages:
+                last_message = messages[0]
+                if last_message.role == 'assistant':
+                    print("Last message\n\n")
+                    assistant_reply = last_message.content[0].text.value
+
+        else:
+            print(run.status)
+
+
+
+    # Get your default Resemble project.
+    project_uuid = Resemble.v2.projects.all(1, 10)['items'][0]['uuid']
+
+    # Get your Voice uuid. In this example, we'll obtain the first.
+    voice_uuid = Resemble.v2.voices.all(1, 10)['items'][0]['uuid']
+
+    # Let's create a clip!
+    response = Resemble.v2.clips.create_sync(project_uuid,
+                                            voice_uuid,
+                                            assistant_reply,
+                                            title=None,
+                                            sample_rate=None,
+                                            output_format=None,
+                                            precision=None,
+                                            include_timestamps=None,
+                                            is_archived=None,
+                                            raw=None)
+    if response['success']:
+        # # Get the audio URL from the response
+        # audio_url = response['item']['audio_src']
+        # print(f"Audio URL: {audio_url}")
+
+        # # Fetch the audio file from the URL
+        # audio_response = requests.get(audio_url)
+
+        # # Use a temporary file to store the audio and play it
+        # audio_file = BytesIO(audio_response.content)
+        # audio_file.seek(0)
+
+        # return send_file(audio_file, mimetype='audio/wav', download_name='audio.wav')
+
+    #     print("assistant reply", assistant_reply)
+        return jsonify({'reply': assistant_reply}), 200
+    else:
+        return jsonify({"error": "Failed to get audio"}), 400
+
+@app.route('/new_chat2', methods=['GET', 'POST'])
+def new_chat2():
+    if request.method == 'GET':
+        # Render the chat interface with the fixed thread_id
+        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID2)
+
+    elif request.method == 'POST':
+        user_message = request.form.get('message')
+        thread_id = FIXED_THREAD_ID2  # Use the fixed thread_id directly
+
+        if not user_message:
+            return jsonify({'error': 'Missing message.'}), 400
+
+
+        # Step 3: Add user message to the thread
+        openai.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=user_message
+        )
+
+
+        # Step 4: Create a run with the Assistant
+        run = openai.beta.threads.runs.create_and_poll(
+            thread_id=thread_id,
+            assistant_id=ASSISTANT_ID2,
+            instructions="Answer as Mom."
         )
 
 # print(thread_messages.÷data)
@@ -461,48 +551,6 @@ def generate_video():
         return jsonify({'error': 'Failed to generate video'}), 500
 
 
-# @app.route('/audio_to_text', methods=['POST'])
-# def audio_to_text():
-#     audio_file = request.files['audio']
-#     if not audio_file:
-#         return jsonify({'error': 'No audio file found'}), 400
-
-#     # Process the audio file here
-#     result = model.transcribe(audio_file)
-#     new_chat(result)
-#     return jsonify({'message': 'Audio file received'}), 200
-
- # To make a POST request to the /new_chat route
-
-# @app.route('/audio_to_text', methods=['POST'])
-# def audio_to_text():
-#     audio_file = request.files['audio']
-#     if not audio_file:
-#         return jsonify({'error': 'No audio file found'}), 400
-
-#     # Process the audio file here (assuming you have a model object to transcribe)
-    
-#     audio_bytes = BytesIO(audio_file.read())
-#     audio, sample_rate = sf.read(audio_bytes)
-
-    # Check if sample rate needs to be adjusted for the model
-    # If using Whisper, it resamples automatically
-    # But if you're using another model, you may need to resample
-
-    # Assuming model accepts raw audio data for transcription
-    # result = model.transcribe(audio)
-    # transcribed_text = result['text']  
-    # # Make a POST request to /new_chat with the transcribed text
-    # response = requests.post('http://localhost:5000/new_chat', data={'msg': transcribed_text})
-
-    # # Check if the /new_chat route responded successfully
-    # if response.status_code == 200:
-    #     return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
-    # else:
-    #     return jsonify({'error': 'Failed to process the transcribed text'}), 500
-
-
-
 @app.route('/audio_to_text', methods=['POST'])
 def audio_to_text():
     if 'audio' not in request.files:
@@ -524,6 +572,63 @@ def audio_to_text():
 
     # Make the POST request to another endpoint
     response = requests.post('http://localhost:5000/new_chat', data={'message': transcription})
+
+    if response.status_code != 200:
+        return jsonify({'error': 'Failed to process chat.'}), response.status_code
+
+    # Assuming the assistant's reply is received in the response
+    assistant_reply = response.json().get('reply')
+
+    # Use Resemble to generate the audio response from the assistant's reply
+    Resemble.api_key('JtsTeaqzfiBJuvxFYh9uIgtt')
+    project_uuid = Resemble.v2.projects.all(1, 10)['items'][0]['uuid']
+    voice_uuid = Resemble.v2.voices.all(1, 10)['items'][0]['uuid']
+
+    # Create the voice clip using Resemble
+    resemble_response = Resemble.v2.clips.create_sync(
+        project_uuid, voice_uuid, assistant_reply
+    )
+
+    if resemble_response['success']:
+        # Fetch the audio file from the generated URL
+        audio_url = resemble_response['item']['audio_src']
+        audio_response = requests.get(audio_url)
+
+        # Use BytesIO to handle the file in memory
+        audio_file = BytesIO(audio_response.content)
+        audio_file.seek(0)
+
+        # Send the audio file as a response
+        return send_file(
+            audio_file,
+            mimetype='audio/wav',
+            as_attachment=True,
+            download_name='response_audio.wav'
+        )
+    else:
+        return jsonify({'error': 'Failed to generate audio'}), 400
+
+@app.route('/audio_to_text2', methods=['POST'])
+def audio_to_text2():
+    if 'audio' not in request.files:
+        return jsonify({'error': 'No audio file found'}), 400
+
+    audio_file = request.files['audio']
+
+    # Save the audio to a temporary file
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_audio_file:
+        temp_audio_file.write(audio_file.read())
+        temp_audio_path = temp_audio_file.name
+
+    # Transcribe the audio using Whisper
+    result = model.transcribe(temp_audio_path)
+    transcription = result['text']
+
+    # Clean up the temporary audio file
+    os.remove(temp_audio_path)
+
+    # Make the POST request to another endpoint
+    response = requests.post('http://localhost:5000/new_chat2', data={'message': transcription})
 
     if response.status_code != 200:
         return jsonify({'error': 'Failed to process chat.'}), response.status_code

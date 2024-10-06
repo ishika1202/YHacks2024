@@ -79,6 +79,16 @@
             height: 20px;
             animation: spin 2s linear infinite;
         }
+        #loader2 {
+            display: none;
+            margin-left: 10px;
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+        }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -185,5 +195,91 @@
 
 </div>
 
+<div class="chat-container">
+    <div class="chat-header">
+        <img src="../static/images/mom-logo.jpeg" alt="Person" class="person-icon">
+        <h2>Chat with Mom</h2>
+    </div>
+
+    <div class="chat-input">
+        <button id="recordButton2" class="icon-btn" onclick="toggleRecording2()">🎤 Start Recording</button>
+        <div id="loader2"></div>
+        <span id="status2">Not recording...</span>
+    </div>
+
+    <audio id="audio-player2" controls></audio>
+
+    <script>
+        let mediaRecorder2;
+        let audioChunk2 = [];
+        let isRecording2 = false;
+        const recordButton2 = document.getElementById("recordButton2");
+        const loader2 = document.getElementById("loader2");
+        const statusText2 = document.getElementById("status2");
+
+        function toggleRecording2() {
+            if (isRecording2) {
+                stopRecording2();
+            } else {
+                startRecording2();
+            }
+        }
+
+        async function startRecording2() {
+            const stream2 = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder2 = new MediaRecorder(stream2);
+            mediaRecorder2.start();
+            isRecording2 = true;
+            recordButton2.textContent = "🛑 Stop Recording";
+            loader2.style.display = "inline-block";
+            statusText2.textContent = "Recording...";
+
+            mediaRecorder2.ondataavailable = function(event) {
+                audioChunks2.push(event.data);
+            };
+
+            mediaRecorder2.onstop = function() {
+                const audioBlob2 = new Blob(audioChunks2, { type: 'audio/wav' });
+                audioChunks2 = [];
+                sendAudioToBackend2(audioBlob2);
+            };
+        }
+
+        function stopRecording2() {
+            mediaRecorder2.stop();
+            isRecording2 = false;
+            recordButton2.textContent = "🎤 Start Recording";
+            statusText2.textContent = "Stopped recording.";
+        }
+
+        function sendAudioToBackend2(audioBlob) {
+            const formData = new FormData();
+            formData.append('audio', audioBlob, 'audio.wav');
+
+            fetch('/audio_to_text2', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                loader2.style.display = "none";
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.blob();  // Get the audio blob from the response
+            })
+            .then(audioBlob => {
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audioPlayer = document.getElementById('audio-player2');
+                audioPlayer.src = audioUrl;  // Set the source to the blob URL
+                audioPlayer.style.display = 'block';  // Show the audio player
+                audioPlayer.play();  // Play the audio
+            })
+            .catch(error => {
+                console.error('There was a problem with the fetch operation:', error);
+            });
+        }
+    </script>
+
+</div>
 </body>
 </html>
