@@ -1,15 +1,32 @@
-<!-- templates/new_chat.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Chat with Assistant</title>
     <style>
-      /* Basic styling for the chat interface */
       body {
         font-family: Arial, sans-serif;
         background-color: #f2f2f2;
       }
+      .chat-input button {
+        padding: 4px 12px;
+      }
+      .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            outline: none;
+            font-size: 28px;
+        }
+
+        .icon-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .hidden {
+            display: none;
+        }
       .chat-container {
         width: 500px;
         margin: 50px auto;
@@ -98,6 +115,7 @@
         cursor: not-allowed;
       }
     </style>
+
   </head>
   <body>
     <div class="chat-container">
@@ -114,12 +132,74 @@
         <!-- Chat messages will appear here -->
       </div>
       <div class="chat-input">
-        <input
-          type="text"
-          id="message-input"
-          placeholder="Type your message here..."
-        />
-        <button id="send-button">Send</button>
+        <button id="startBtn" class="icon-btn">
+          🎤 <!-- Microphone icon for starting the recording -->
+      </button>
+      <button id="stopBtn" class="icon-btn hidden">
+          ⏹️ <!-- Stop icon for stopping the recording -->
+      </button>
+      <audio id="audioPlayback" style="display: none;"></audio>
+      <input
+      type="text"
+      id="message-input"
+      placeholder="Type your message here..."
+    />
+    <button id="send-button">Send</button>
+      <script>
+          let mediaRecorder;
+          let audioChunks = [];
+  
+          const startBtn = document.getElementById('startBtn');
+          const stopBtn = document.getElementById('stopBtn');
+          const audioPlayback = document.getElementById('audioPlayback');
+  
+          // Start recording
+          startBtn.addEventListener('click', async () => {
+              const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              mediaRecorder = new MediaRecorder(stream);
+              
+              mediaRecorder.ondataavailable = event => {
+                  audioChunks.push(event.data);
+              };
+  
+              mediaRecorder.onstop = async () => {
+                  const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                  const audioUrl = URL.createObjectURL(audioBlob);
+                  audioPlayback.src = audioUrl;
+                  audioChunks = [];
+                  
+                  // Sending audio file to the server
+                  const formData = new FormData();
+                  formData.append('audio', audioBlob, 'recording.wav');
+  
+                  try {
+                      const response = await fetch('/audio_to_text', {
+                          method: 'POST',
+                          body: formData
+                      });
+  
+                      if (response.ok) {
+                          console.log('Audio uploaded successfully');
+                      } else {
+                          console.error('Error uploading audio:', response.statusText);
+                      }
+                  } catch (error) {
+                      console.error('Error during upload:', error);
+                  }
+              };
+  
+              mediaRecorder.start();
+              startBtn.classList.add('hidden');
+              stopBtn.classList.remove('hidden');
+          });
+  
+          // Stop recording
+          stopBtn.addEventListener('click', () => {
+              mediaRecorder.stop();
+              startBtn.classList.remove('hidden');
+              stopBtn.classList.add('hidden');
+          });
+      </script>
       </div>
     </div>
     <script>
@@ -303,10 +383,10 @@
       }
 
       // Event listener for the generate video button
-      generateVideoButton.addEventListener("click", generateVideo);
+      // generateVideoButton.addEventListener("click", generateVideo);
 
       // Event listener for the download video button
-      downloadVideoButton.addEventListener("click", downloadVideo);
+      // downloadVideoButton.addEventListener("click", downloadVideo);
     </script>
   </body>
 </html>
