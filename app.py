@@ -33,7 +33,7 @@ def calculate_angle(a, b, c):
     return angle
 
 # Video capture setup
-camera = cv2.VideoCapture(0)
+camera = cv2.VideoCapture(1)
 camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
