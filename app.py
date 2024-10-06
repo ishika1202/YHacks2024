@@ -366,6 +366,18 @@ def generate_video():
         return jsonify({'error': 'Failed to generate video'}), 500
 
 
+@app.route('/audio_to_text', methods=['POST'])
+def audio_to_text():
+    audio_file = request.files['audio']
+    if not audio_file:
+        return jsonify({'error': 'No audio file found'}), 400
+
+    # Process the audio file here
+
+    return jsonify({'message': 'Audio file received'}), 200
+
+
+
 # Route to check the status of the video
 @app.route('/video_status', methods=['GET'])
 def video_status():
