@@ -268,77 +268,67 @@ def video_feed():
 FIXED_THREAD_ID = "thread_P6sL6lNsFbTy9uG4vMTJ9vu1"
 ASSISTANT_ID = "asst_YXZx1z8URiwtk9XusbA0nH40"
 
-# @app.route('/new_chat', methods=['GET', 'POST'])
-# def new_chat(string: msg):
-#     if request.method == 'GET':
-#         # Render the chat interface with the fixed thread_id
-#         return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
-    
-#     elif request.method == 'POST':
-#         user_message = msg;
-#         thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
-        
-#         if not user_message:
-#             return jsonify({'error': 'Missing message.'}), 400
-        
-# @app.route('/new_chat', methods=['GET', 'POST'])
-# def new_chat():
-#     if request.method == 'GET':
-#         # Render the chat interface with a fixed thread_id
-#         return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
 
-#     elif request.method == 'POST':
-#         # Get the message from the POST request
-#         user_message = request.form.get('msg')  # Assuming 'msg' is passed in the POST request form data
-#         thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
-        
-#         if not user_message:
-#             return jsonify({'error': 'Missing message.'}), 400
-        
-#         # Process the user message (you can add processing logic here)
-#         return jsonify({'message': 'Message received', 'user_message': user_message}), 200
+@app.route('/new_chat', methods=['GET', 'POST'])
+def new_chat():
+    if request.method == 'GET':
+        # Render the chat interface with the fixed thread_id
+        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
 
-#         # Step 3: Add user message to the thread
-#     openai.beta.threads.messages.create(
-#         thread_id=thread_id,
-#         role="user",
-#         content=user_message
-#     )
+    elif request.method == 'POST':
+        user_message = request.form.get('message')
+        thread_id = FIXED_THREAD_ID  # Use the fixed thread_id directly
 
-    
-#     # Step 4: Create a run with the Assistant
-#     run = openai.beta.threads.runs.create_and_poll(
-#         thread_id=thread_id,
-#         assistant_id=ASSISTANT_ID,
-#         instructions="Answer as Ishika."
-#     )
-
-# # print(thread_messages.÷data)
-
-#     if run.status == 'completed': 
+        if not user_message:
+            return jsonify({'error': 'Missing message.'}), 400
 
 
-#         messages_cursor = openai.beta.threads.messages.list(
-#             thread_id=thread_id,
-#             order='desc',
-#             limit=1
-#         )
-#         # print("=======message cursor", messages_cursor)
-#         messages = list(messages_cursor)
-#         if messages:
-#             last_message = messages[0]
-#             if last_message.role == 'assistant':
-#                 print("Last message\n\n")
-#                 print("last message", last_message.content[0].text.value)
-#                 assistant_reply = last_message.content[0].text.value
+        # Step 3: Add user message to the thread
+        openai.beta.threads.messages.create(
+            thread_id=thread_id,
+            role="user",
+            content=user_message
+        )
 
-#     else:
-#         print(run.status)
 
-    
-#     if assistant_reply:
-#         print("assistant reply", assistant_reply)
-#         return jsonify({'reply': assistant_reply}), 200
+        # Step 4: Create a run with the Assistant
+        run = openai.beta.threads.runs.create_and_poll(
+            thread_id=thread_id,
+            assistant_id=ASSISTANT_ID,
+            instructions="Answer as Ishika."
+        )
+
+# print(thread_messages.÷data)
+
+        if run.status == 'completed': 
+
+
+            messages_cursor = openai.beta.threads.messages.list(
+                thread_id=thread_id,
+                order='desc',
+                limit=1
+            )
+            # print("=======message cursor", messages_cursor)
+            messages = list(messages_cursor)
+            if messages:
+                last_message = messages[0]
+                if last_message.role == 'assistant':
+                    print("Last message\n\n")
+                    print("last message", last_message.content[0].text.value)
+                    assistant_reply = last_message.content[0].text.value
+
+        else:
+            print(run.status)
+
+
+    if assistant_reply:
+        print("assistant reply", assistant_reply)
+        return jsonify({'reply': assistant_reply}), 200
+
+
+# Endpoint for generating videos
+HEYGEN_VIDEO_GENERATE_URL = 'https://api.heygen.com/v2/video/generate'
+HEYGEN_VIDEO_STATUS_URL = 'https://api.heygen.com/v1/video_status.get'
 
 
 # Endpoint for generating videos
@@ -454,24 +444,15 @@ def audio_to_text():
 
     # Clean up the temporary audio file
     os.remove(temp_audio_path)
+    response = requests.post('http://localhost:5000/new_chat', data={'message': transcription})
+    print("In Audio to speach", response)
+    # Check if the /new_chat route responded successfully
+    if response.status_code == 200:
+        return jsonify({'message': 'Audio file transcribed and processed successfully'}), 200
+    else:
+        return jsonify({'error': 'Failed to process the transcribed text'}), 500
 
-    # Send the transcription as a JSON response
-    return jsonify({'transcription': transcription}), 200
 
-# Route for GPT processing (new_chat)
-@app.route('/new_chat', methods=['POST', 'GET'])
-def new_chat():
-    if request.method == 'GET':
-         # Render the chat interface with the fixed thread_id
-        return render_template('new_chat.html', thread_id=FIXED_THREAD_ID)
-    elif request.method == 'POST':
-        print("inside post")
-        user_message = request.form.get('message')
-    
-    # Simulate GPT response
-        gpt_response = f"GPT response to: {user_message}"
-        print(gpt_response)
-        return jsonify({'reply': gpt_response}), 200
 
 # Route to check the status of the video
 @app.route('/video_status', methods=['GET'])
