@@ -46,32 +46,38 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 
-# Initialize counters
-counter = 0
-stage = None
-model = whisper.load_model("base")
+
+counter_right = 0
+counter_left = 0
+stage_right = None
+stage_left = None
+ 
+# Camera object for video capturing
+camera = cv2.VideoCapture(0)
+camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+ 
 # Function to calculate the angle between three points
 def calculate_angle(a, b, c):
     a = np.array(a)  # First point (shoulder)
     b = np.array(b)  # Second point (elbow)
     c = np.array(c)  # Third point (wrist)
-
+   
     # Calculate the angle using arctangent
     radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - np.arctan2(a[1] - b[1], a[0] - b[0])
     angle = np.abs(radians * 180.0 / np.pi)
-
+   
     # Ensure the angle is within [0, 180] range
     if angle > 180.0:
         angle = 360 - angle
     return angle
-
-# Video capture setup
-camera = cv2.VideoCapture(1)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
+ 
+# Generate frames to send to the web platform
 def generate_frames():
-    global counter, stage
+    global counter_right, counter_left, stage_right, stage_left
+    mp_pose = mp.solutions.pose
+    pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+    mp_drawing = mp.solutions.drawing_utils
     while True:
         success, frame = camera.read()
         if not success:
@@ -80,74 +86,110 @@ def generate_frames():
             # Recolor the image to RGB as required by MediaPipe
             image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image.flags.writeable = False
-
+ 
             # Make pose detection
             results = pose.process(image)
-
+ 
             # Recolor back to BGR for rendering
             image.flags.writeable = True
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-
-            # Extract landmarks
+ 
+            # Extract landmarks and calculate angles
             try:
                 landmarks = results.pose_landmarks.landmark
-
-                # Get coordinates for right arm (you can switch to left arm)
+ 
+                # Get coordinates for right arm
                 right_shoulder = [landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].x,
                                   landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value].y]
                 right_elbow = [landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].x,
                                landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value].y]
                 right_wrist = [landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].x,
                                landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value].y]
-
-                # Calculate the angle at the elbow joint
-                angle = calculate_angle(right_shoulder, right_elbow, right_wrist)
-
-                # Visualize the angle on the screen
-                cv2.putText(image, f'Elbow Angle: {int(angle)}',
+ 
+                # Get coordinates for left arm
+                left_shoulder = [landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].x,
+                                 landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value].y]
+                left_elbow = [landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].x,
+                              landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value].y]
+                left_wrist = [landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].x,
+                              landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value].y]
+ 
+                # Calculate the angles at the elbow joints
+                angle_right = calculate_angle(right_shoulder, right_elbow, right_wrist)
+                angle_left = calculate_angle(left_shoulder, left_elbow, left_wrist)
+ 
+                # Visualize the angles on the screen for both arms
+                cv2.putText(image, f'Right Elbow Angle: {int(angle_right)}',
                             tuple(np.multiply(right_elbow, [640, 480]).astype(int)),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
-
-                # Curl counter logic: Detect when the arm is fully extended or contracted
-                if angle > 160:
-                    stage = "down"
-                if angle < 30 and stage == "down":
-                    stage = "up"
-                    counter += 1  # Count each curl when the user moves from "down" to "up"
-                    print(f"Reps: {counter}")
-
-                # Display feedback based on form
-                if angle > 160:
-                    feedback = "Fully Extended"
-                elif angle < 30:
-                    feedback = "Fully Contracted"
-                else:
-                    feedback = "Keep Curling"
-
-                # Show feedback on the frame
-                cv2.putText(image, feedback,
+ 
+                cv2.putText(image, f'Left Elbow Angle: {int(angle_left)}',
+                            tuple(np.multiply(left_elbow, [640, 480]).astype(int)),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2, cv2.LINE_AA)
+ 
+                # Curl counter logic for the right arm
+                if angle_right > 160:
+                    stage_right = "down"
+                if angle_right < 30 and stage_right == "down":
+                    stage_right = "up"
+                    counter_right += 1
+                    print(f"Right Reps: {counter_right}")
+ 
+                # Curl counter logic for the left arm
+                if angle_left > 160:
+                    stage_left = "down"
+                if angle_left < 30 and stage_left == "down":
+                    stage_left = "up"
+                    counter_left += 1
+                    print(f"Left Reps: {counter_left}")
+ 
+                # Display feedback for right arm based on form
+                feedback_right = "Keep Curling"
+                if angle_right > 160:
+                    feedback_right = "Right Arm Fully Extended"
+                elif angle_right < 30:
+                    feedback_right = "Right Arm Fully Contracted"
+ 
+                # Display feedback for left arm based on form
+                feedback_left = "Keep Curling"
+                if angle_left > 160:
+                    feedback_left = "Left Arm Fully Extended"
+                elif angle_left < 30:
+                    feedback_left = "Left Arm Fully Contracted"
+ 
+                # Show feedback on the frame for both arms
+                cv2.putText(image, feedback_right,
                             (50, 50),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
-                # Display the rep count on the frame
-                cv2.putText(image, f'Reps: {counter}',
+ 
+                cv2.putText(image, feedback_left,
+                            (50, 150),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+ 
+                # Display the rep count on the frame for both arms
+                cv2.putText(image, f'Right Reps: {counter_right}',
                             (50, 100),
                             cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
-
+ 
+                cv2.putText(image, f'Left Reps: {counter_left}',
+                            (50, 200),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2, cv2.LINE_AA)
+ 
             except:
                 pass
-
+ 
             # Render the pose annotations on the frame
             if results.pose_landmarks:
                 mp_drawing.draw_landmarks(image, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
-
+ 
             # Encode the frame in JPEG format
             ret, buffer = cv2.imencode('.jpg', image)
             frame = buffer.tobytes()
-
+ 
             # Yield the frame in byte format
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
 
 # Configure the database
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'  # SQLite database
